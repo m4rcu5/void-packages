@@ -1,0 +1,44 @@
+# Template file for 'AppImageLauncher'
+pkgname=AppImageLauncher
+version=2.2.0
+revision=1
+patch_args="-Np1"
+build_style=cmake
+hostmakedepends="git automake pkg-config libtool wget xxd desktop-file-utils"
+makedepends="glib-devel cairo-devel librsvg-devel fuse-devel libarchive-devel boost-devel liblzma-devel libcurl-devel qt5-devel"
+short_desc="Helper application for Linux distributions serving as a kind of \"entry point\" for running and integrating AppImages"
+maintainer="Marcus van Dam <mail@marcusvandam.nl>"
+license="MIT"
+homepage="https://github.com/TheAssassin/AppImageLauncher"
+
+# use as many system libraries as possible. (squashfuse and xdg-utils-cxx are missing)
+configure_args="-DUSE_SYSTEM_XZ=ON -DUSE_SYSTEM_LIBARCHIVE=ON -DUSE_SYSTEM_CURL=ON -DUSE_SYSTEM_BOOST=ON"
+
+do_fetch() {
+	# fetch the correct version of this project and all its submodules
+	git clone -b v${version} --recurse-submodules https://github.com/TheAssassin/AppImageLauncher.git --depth=1 ${wrksrc}
+}
+
+do_build() {
+	cd ${cmake_builddir:=build}
+
+	# see https://github.com/TheAssassin/AppImageLauncher/issues/251 for more details why this is required
+	make ${makejobs} libappimage libappimageupdate libappimageupdate-qt
+	cmake .
+
+	make ${makejobs}
+}
+
+# install AppImageLauncher as interpreter for AppImages
+binfmts="--package appimage --install appimage-type1 /usr/bin/AppImageLauncher --magic 'AI\\\x01' --offset 8
+--package appimage --install appimage-type2 /usr/bin/AppImageLauncher --magic 'AI\\\x02' --offset 8"
+
+post_install() {
+	# remove unused files
+	rm -rf ${DESTDIR}/usr/lib/systemd
+	rm -rf ${DESTDIR}/usr/lib/binfmt.d
+
+	# install MIT license
+	vlicense LICENSE.txt
+}
+
